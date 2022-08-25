@@ -38,7 +38,7 @@ datasources:
             - month
             - day
             - filename
-          pattern: (.*)\/(\d{4})\/(\d{2})\/(\d{2})\/(.*)\.csv
+          pattern: (.*)\/(\d{4})\/(\d{2})\/(\d{2})\/(.*)\.parquet
         class_name: InferredAssetS3DataConnector
       default_runtime_data_connector_name:
         module_name: great_expectations.datasource.data_connector
