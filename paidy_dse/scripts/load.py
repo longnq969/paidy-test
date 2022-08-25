@@ -1,5 +1,6 @@
 from dask.dataframe import DataFrame
 import os
+from scripts.common.helpers import S3_CREDENTIAL
 
 
 def load_to_local(df: DataFrame, path: str, ext="csv") -> bool:
@@ -18,17 +19,11 @@ def load_to_local(df: DataFrame, path: str, ext="csv") -> bool:
 
 
 def load_to_s3(df: DataFrame, bucket: str, path: str, ext: str = "csv") -> bool:
-    storage_options = {'key': os.environ['AWS_ACCESS_KEY_ID'],
-                       'secret': os.environ['AWS_SECRET_ACCESS_KEY'],
-                       'client_kwargs': {
-                            'endpoint_url': os.environ['AWS_ENDPOINT_URL']
-                        },
-                       'use_ssl': False}
     try:
         if ext == "csv":
-            df.to_csv(f's3://{bucket}/{path}/data-*.csv', storage_options=storage_options, mode='w')
+            df.to_csv(f's3://{bucket}/{path}/data-*.csv', storage_options=S3_CREDENTIAL, mode='w')
         elif ext == "parquet":
-            df.to_parquet(f's3://{bucket}/{path}/data-*.parquet', storage_options=storage_options, mode='w')
+            df.to_parquet(f's3://{bucket}/{path}/data-*.parquet', storage_options=S3_CREDENTIAL, mode='w')
         else:
             return False
         return True

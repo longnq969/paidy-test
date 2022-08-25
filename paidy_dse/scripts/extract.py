@@ -1,6 +1,6 @@
 import dask.dataframe as dd
 from dask.dataframe import DataFrame
-import os
+from scripts.common.helpers import S3_CREDENTIAL
 
 
 def read_data_from_local(fol_path: str, blocksize: str = "10MB", ext="csv") -> DataFrame:
@@ -31,18 +31,11 @@ def read_data_from_s3(bucket: str, path: str, ext: str = "csv") -> DataFrame:
     :param ext: file extension, .csv or .parquet
     :return: DataFrame
     """
-
-    storage_options = {'key': os.environ['AWS_ACCESS_KEY_ID'],
-                       'secret': os.environ['AWS_SECRET_ACCESS_KEY'],
-                       'client_kwargs': {
-                            'endpoint_url': os.environ['AWS_ENDPOINT_URL']
-                        },
-                       'use_ssl': False}
     try:
         if ext == "csv":
-            return dd.read_csv(f's3://{bucket}/{path}/*.csv', storage_options=storage_options)
+            return dd.read_csv(f's3://{bucket}/{path}/*.csv', storage_options=S3_CREDENTIAL)
         elif ext == "parquet":
-            return dd.read_parquet(f's3://{bucket}/{path}/*.parquet', storage_options=storage_options)
+            return dd.read_parquet(f's3://{bucket}/{path}/*.parquet', storage_options=S3_CREDENTIAL)
         else:
             return False
         return True
