@@ -2,6 +2,7 @@ from prefect import task, flow, get_run_logger
 from prefect_dask.task_runners import DaskTaskRunner
 import os
 import dask.dataframe as dd
+from typing import Optional
 from dask.dataframe import DataFrame
 from datetime import datetime, timedelta
 from pytz import utc
@@ -19,20 +20,26 @@ from prefect.orion.schemas.states import Completed, Failed
 
 
 @task(name='read raw data')
-def read_raw_data(date_str: str = None) -> DataFrame:
+def extract_from_raw(date_str: str = None) -> DataFrame:
+    """
+    Extract data from Raw bucket
+    :param date_str: Date identity, string in format "%Y-%m-%d"
+    :return: DataFrame
+    """
     if date_str is None:
         # get yesterday
         date_str = datetime.now(utc) - timedelta(1)
         date_str = date_str.strftime("%Y-%m-%d")
-    key = "/".join(date_str.split("-"))
+    fpath = "/".join(date_str.split("-"))
     logger = get_run_logger()
-    logger.info(f"Reading data from bucket: {RAW_BUCKET}, key: {key}")
+    logger.info(f"Reading data from bucket: {RAW_BUCKET}, fpath: {fpath}")
 
-    return read_data_from_s3(RAW_BUCKET, key)
+    return read_data_from_s3(RAW_BUCKET, fpath, ext="csv")
 
 
-@task(name='clean data to ingest to golden zone')
-def clean_golden(df: DataFrame) -> DataFrame:
+# @task(name='clean data to ingest to golden zone')
+def clean_golden_data(df: DataFrame) -> DataFrame:
+    """ Data cleaning before ingesting into Golden bucket """
     df = df\
         .pipe(prepare_drop_columns, 'Unnamed: 0')\
         .pipe(prepare_remove_duplicates, [])\
@@ -42,8 +49,9 @@ def clean_golden(df: DataFrame) -> DataFrame:
     return df
 
 
-@task(name='clean data to ingest to insight zone')
-def clean_insight(df: DataFrame) -> DataFrame:
+# @task(name='clean data to ingest to insight zone')
+def clean_insight_data(df: DataFrame) -> DataFrame:
+    """ Data cleaning before ingesting into Insight bucket """
     df = df\
         .pipe(prepare_drop_columns, 'Unnamed: 0')\
         .pipe(prepare_remove_duplicates, [])\
@@ -60,52 +68,73 @@ def clean_insight(df: DataFrame) -> DataFrame:
 
 
 @task
-def validate(date_str: str, checkpoint_name: str, data_stage: str, validation_rules):
-    res = validate_data_from_s3_data_source(checkpoint_name, data_stage, validation_rules, date_str)
-    return res
+def clean_data(df: DataFrame, dest: str) -> Optional[DataFrame]:
+    if dest == "golden":
+        return clean_golden_data(df)
+    elif dest == "insight":
+        return clean_insight_data(df)
+    else:
+        return None
+
+
+@task(name="validate data before Ingesting")
+def validate_data(date_str: str, checkpoint_name: str, data_stage: str, validation_rules):
+    """
+    Use great_expectations to validate data before ingesting
+    :param date_str: date string in format "%Y-%m-%d", identify data path
+    :param checkpoint_name: GE config - checkpoint_name
+    :param data_stage: GE config - data_asset_name
+    :param validation_rules: GE config - expectation_suit_name
+    :return: bool
+    """
+    return validate_data_from_s3_data_source(checkpoint_name, data_stage, validation_rules, date_str)
 
 
 @task(name="load data in storage")
-def load_data(df: DataFrame, bucket: str = None, path: str = None) -> bool:
+def load_data(df: DataFrame, dest: str, prefix: str = None) -> bool:
     """
     Load data to storage location
     :param df: DataFrame
-    :param bucket: Status of data e.g "raw", "golden", "staging", or "insight"
-    :param path: path to storage
+    :param dest: Location to write e.g "raw", "golden", "staging", or "insight"
+    :param prefix: path prefix
     :return: None
     """
     # construct path as current date in UTC
-    prefixes = datetime.now(utc).strftime("%Y-%m-%d").split('-')
-    if path:
-        output_path = f"{path}/{prefixes[0]}/{prefixes[1]}/{prefixes[2]}"
+    fpath = "/".join(datetime.now(utc).strftime("%Y-%m-%d").split('-'))
+    if prefix:
+        fpath = f"{prefix}/{fpath}"
+
+    if dest == "golden":
+        load_to_s3(df, GOLDEN_BUCKET, fpath, "csv")
+    elif dest == "staging":
+        load_to_s3(df, STG_BUCKET, fpath, "parquet")
+    elif dest == "insight":
+        load_to_s3(df, INSIGHT_BUCKET, fpath, "csv")
     else:
-        output_path = f"{prefixes[0]}/{prefixes[1]}/{prefixes[2]}"
-    if bucket:
-        load_to_s3(df, bucket, output_path)
-    else:
-        load_to_local(df, output_path)
+        return False
 
 
 @flow
-def raw_to_golden_flow(df, date_str: str):
-    c = clean_golden.submit(df)
-    load_data.submit(c, bucket=STG_BUCKET, path="golden")
-    validation_res = validate(date_str, "stg_checkpoint", "golden","golden_validation")
-    if validation_res:
-        load_data(c, bucket=GOLDEN_BUCKET)
-        return Completed(message="raw2golden OK")
-    return Failed(message="raw2golden Not OK")
-
-
-@flow
-def raw_to_insight_flow(df, date_str: str):
-    c = clean_insight.submit(df)
-    load_data.submit(c, bucket=STG_BUCKET, path="insight")
-    validation_res = validate(date_str, "stg_checkpoint", "insight", "golden_validation")
-    if validation_res:
-        load_data(c, bucket=INSIGHT_BUCKET)
-        return Completed(message="raw2insight OK")
-    return Failed(message="raw2insight Not OK")
+def raw_to_destination_flow(df, date_str: str, dest: str):
+    res = False
+    logging = get_run_logger()
+    # clean data
+    c = clean_data.submit(df, dest)
+    # load to staging zone
+    load_data.submit(c, "staging", dest)
+    # validate data
+    is_data_valid = validate_data.submit(date_str, "stg_checkpoint", dest, f"{dest}_validation")
+    if is_data_valid.result():
+        logging.info(f"raw2{dest} validation passed .!")
+        l = load_data.submit(c, dest)
+            # logging.info(f"raw2{dest} completed .!")
+            # return Completed(message=f"raw2{dest} completed .!")
+        if l.result():
+            return True
+        # Failed(message=f"raw2{dest} validation failed .!")
+        return False
+    # return Failed(message=f"raw2{dest} validation failed .!")
+    return False
 
 
 @flow(task_runner=DaskTaskRunner)
@@ -114,9 +143,14 @@ def raw_etl_flow(date_str: str = None):
         # get yesterday
         date_str = datetime.now(utc) - timedelta(days=1)
         date_str = date_str.strftime("%Y-%m-%d")
-    data = read_raw_data(date_str)
-    raw_to_golden_flow(data, date_str)
-    raw_to_insight_flow(data, date_str)
+    data = extract_from_raw(date_str)
+    r2g_result = raw_to_destination_flow(data, date_str, 'golden')
+    r2i_result = raw_to_destination_flow(data, date_str, 'insight')
+
+    if r2i_result and r2g_result:
+        return Completed(message="ETL completed .!")
+    else:
+        return Failed(message="ETL failed .!")
 
 
 if __name__ == "__main__":
