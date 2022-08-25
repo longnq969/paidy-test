@@ -23,9 +23,9 @@ services:
       # PREFECT_API_URL: http://prefect-server:4200/api
       PREFECT_LOGGING_LEVEL: DEBUG
       DOCKER_HOST: unix://var/run/docker.sock
-      MINIO_ACCESS_KEY_ID: minio
-      MINIO_SECRET_KEY: abc13579
-      MINIO_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: abc13579
+      AWS_ENDPOINT_URL: http://minio:9000
     volumes:
       - ./storages/docker.sock:/var/run/docker.sock
     restart: on-failure
