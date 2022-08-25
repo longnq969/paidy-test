@@ -1,0 +1,5 @@
+RAW_BUCKET = "raw-zone"
+GOLDEN_BUCKET = "golden-zone"
+STG_BUCKET = "staging-zone"
+INSIGHT_BUCKET = "insight-zone"
+DATE_FORMAT = "%Y-%m-%d"

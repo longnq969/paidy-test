@@ -1,0 +1,44 @@
+###
+### A complete description of a Prefect Deployment for flow 'raw-etl-flow'
+###
+name: 2408_local_deployment
+description: null
+version: fa95bb2163c17c19375407cd731d29a3
+# The work queue that will handle this deployment's runs
+work_queue_name: default
+tags:
+- test
+parameters: {}
+schedule:
+  interval: 300.0
+  anchor_date: '2022-08-24T11:41:06.921331+00:00'
+  timezone: UTC
+infra_overrides: {}
+infrastructure:
+  type: process
+  env: {}
+  labels: {}
+  name: null
+  command:
+  - python
+  - -m
+  - prefect.engine
+  stream_output: true
+
+###
+### DO NOT EDIT BELOW THIS LINE
+###
+flow_name: raw-etl-flow
+manifest_path: null
+storage: null
+path: E:\etl\etl\interview\paidy_dse
+entrypoint: flows\g2i_pipeline.py:raw_etl_flow
+parameter_openapi_schema:
+  title: Parameters
+  type: object
+  properties:
+    date_str:
+      title: date_str
+      type: string
+  required: null
+  definitions: null

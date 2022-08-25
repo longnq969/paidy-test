@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "scripts"
+version = "0.1.0"
+description = ""
+authors = ["Long Nguyen <longnq969@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pandas = "^1.4.3"
+prefect = {extras = ["ge"], version = "^2.1.1"}
+prefect-dask = "^0.1.2"
+SQLAlchemy = "^1.4.40"
+great-expectations = "^0.15.19"
+jupyter = "^1.0.0"
+notebook = "^6.4.12"
+prefect-great-expectations = "^0.1.0"
+boto3 = "1.21.21"
+s3fs = "^2022.7.1"
+findspark = "^2.0.1"
+pyspark = "^3.3.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

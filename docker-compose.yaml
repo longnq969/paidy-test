@@ -1,0 +1,52 @@
+version: '3.3'
+
+networks:
+  prefect:
+    name: prefect
+
+services:
+  prefect-agent:
+    container_name: prefect_agent
+    build:
+        context: ./
+        dockerfile: docker/Dockerfile
+    command:
+      - prefect
+      - agent
+      - start
+      - -q
+      - default
+    depends_on:
+      prefect-server:
+        condition: service_started
+    environment:
+      # PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_LOGGING_LEVEL: DEBUG
+      DOCKER_HOST: unix://var/run/docker.sock
+      MINIO_ACCESS_KEY_ID: minio
+      MINIO_SECRET_KEY: abc13579
+      MINIO_ENDPOINT_URL: http://minio:9000
+    volumes:
+      - ./storages/docker.sock:/var/run/docker.sock
+    restart: on-failure
+    networks:
+      - prefect
+
+  # --------------------------------------#
+  #         Minio for storage             #
+  # --------------------------------------#
+  minio:
+    image: minio/minio
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=abc13579
+    volumes:
+      - ./storages/minio:/data
+    command: server /data --console-address :9001
+    ports:
+      - published: 9000
+        target: 9000
+      - published: 9001
+        target: 9001
+    networks:
+      - prefect

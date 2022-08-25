@@ -1,0 +1,42 @@
+###
+### A complete description of a Prefect Deployment for flow 'load source to raw lake'
+###
+name: local-deployment
+description: null
+version: 97cda9856007f521fbc8584054381b7b
+# The work queue that will handle this deployment's runs
+work_queue_name: default
+tags:
+- test
+parameters: {}
+schedule: null
+infra_overrides: {}
+infrastructure:
+  type: process
+  env: {}
+  labels: {}
+  name: null
+  command:
+  - python
+  - -m
+  - prefect.engine
+  stream_output: true
+
+###
+### DO NOT EDIT BELOW THIS LINE
+###
+flow_name: load source to raw lake
+manifest_path: null
+storage: null
+path: D:\longnq\work\etl\interview\paidy_dse
+entrypoint: scripts\execute.py:load_source_to_raw_data_lake
+parameter_openapi_schema:
+  title: Parameters
+  type: object
+  properties:
+    fol_path:
+      title: fol_path
+      type: string
+  required:
+  - fol_path
+  definitions: null
