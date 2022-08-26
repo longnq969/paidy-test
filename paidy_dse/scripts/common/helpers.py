@@ -1,11 +1,5 @@
 import os
 
-# S3 buckets
-RAW_BUCKET = "raw-zone"
-GOLDEN_BUCKET = "golden-zone"
-STAGING_BUCKET = "staging-zone"
-INSIGHT_BUCKET = "insight-zone"
-
 # date format
 DATE_FORMAT = "%Y-%m-%d"
 
@@ -22,26 +16,26 @@ STAGING = "staging"
 
 DATA_STAGES = {
     "raw": {
-        "bucket": RAW_BUCKET,
-        "file_format": "csv"
+        "bucket": "raw-zone",  # s3 bucket
+        "file_format": "csv",
+        "validation_rules": None
     },
     "golden": {
-        "bucket": GOLDEN_BUCKET,
-        "file_format": "csv"
+        "bucket": "golden-zone",  # s3 bucket
+        "file_format": "csv",
+        "validation_rules": "golden_validation"
     },
     "staging": {
-        "bucket": STAGING_BUCKET,
-        "file_format": "parquet"
+        "bucket": "staging-zone",  # s3 bucket
+        "file_format": "parquet",
+        "validation_rules": None
     },
     "insight": {
-        "bucket": INSIGHT_BUCKET,
-        "file_format": "csv"
+        "bucket": "insight-zone",  # s3 bucket
+        "file_format": "csv",
+        "validation_rules": "insight_validation"
     }
 }
-
-# GE suite name
-GOLDEN_EXP_SUITE_NAME = "golden_validation"
-INSIGHT_EXP_SUITE_NAME = "golden_validation"
 
 # S3 credential
 S3_CREDENTIAL = {

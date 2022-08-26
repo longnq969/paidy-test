@@ -28,8 +28,8 @@ def extract_s3_data(source: str, date_str: str, prefix: str = None) -> DataFrame
         # get yesterday
         date_str = datetime.now(utc).strftime(DATE_FORMAT)
     fpath = "/".join(date_str.split('-'))
-    bucket, file_format = list(DATA_STAGES[source].values())
-    if bucket == STAGING_BUCKET:
+    bucket, file_format, _ = list(DATA_STAGES[source].values())
+    if source == STAGING:
         fpath = f"{prefix}/{fpath}"
 
     # extract data
@@ -67,8 +67,8 @@ def load_s3_data(df: DataFrame, dest: str, date_str: str = None, prefix: str = N
         # get yesterday
         date_str = datetime.now(utc).strftime(DATE_FORMAT)
     fpath = "/".join(date_str.split('-'))
-    bucket, file_format = list(DATA_STAGES[dest].values())
-    if bucket == STAGING_BUCKET:
+    bucket, file_format, _ = list(DATA_STAGES[dest].values())
+    if dest == STAGING:
         fpath = f"{prefix}/{fpath}"
 
     # load data
@@ -102,10 +102,12 @@ def transform_then_load_to_staging(df, date_str: str):
 def validate_from_staging_then_load(date_str: str):
     load_s3_data.submit(extract_s3_data(STAGING, date_str, GOLDEN_PREFIX),
                         GOLDEN, date_str, None,
-                        is_valid=validate_s3_data(date_str, "stg_checkpoint", GOLDEN, GOLDEN_EXP_SUITE_NAME))
+                        is_valid=validate_s3_data(date_str, "stg_checkpoint", GOLDEN,
+                                                  DATA_STAGES[GOLDEN]["validation_rules"]))
     load_s3_data.submit(extract_s3_data(STAGING, date_str, INSIGHT_PREFIX),
                         INSIGHT, date_str, None,
-                        is_valid=validate_s3_data(date_str, "stg_checkpoint", INSIGHT, INSIGHT_EXP_SUITE_NAME))
+                        is_valid=validate_s3_data(date_str, "stg_checkpoint", INSIGHT,
+                                                  DATA_STAGES[INSIGHT]["validation_rules"]))
 
 
 @flow(name="Credit ETL Flow")

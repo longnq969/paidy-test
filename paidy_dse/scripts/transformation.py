@@ -73,7 +73,8 @@ def prepare_fix_inconsistent_values(df: DataFrame, col: str, values: list) -> Da
     return df
 
 
-def camelCase_to_snake_case(s):
+def camelCase_to_snake_case(s: str) -> str:
+    """ Change format of string from camelCase to snake_case """
     pattern = re.compile(r'(?<!^)(?=[A-Z])')
     return pattern.sub('_', s.replace('-', '_')).lower()
 
@@ -91,7 +92,7 @@ def prepare_rename_columns(df: DataFrame) -> DataFrame:
 
 
 def clean_golden_data(df: DataFrame) -> DataFrame:
-    """ Data cleaning before ingesting into Golden bucket """
+    """ Data transformation steps for Golden-zone """
     df = df\
         .pipe(prepare_drop_columns, 'Unnamed: 0')\
         .pipe(prepare_remove_duplicates, [])\
@@ -102,7 +103,7 @@ def clean_golden_data(df: DataFrame) -> DataFrame:
 
 
 def clean_insight_data(df: DataFrame) -> DataFrame:
-    """ Data cleaning before ingesting into Insight bucket """
+    """ Data transformation steps for Insight-zone  """
     df = df\
         .pipe(prepare_drop_columns, 'Unnamed: 0')\
         .pipe(prepare_remove_duplicates, [])\
