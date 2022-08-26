@@ -15,7 +15,7 @@ def read_data_from_local(fpath: str, blocksize: str = "10MB", ext="csv") -> Opti
     if ext == "csv":
         return dd.read_csv(f"{fpath}/*.csv", blocksize=blocksize)
     elif ext == "parquet":
-        return dd.read_parquet(f"{fpath}/*.parquet", blocksize=blocksize)
+        return dd.read_parquet(f"{fpath}/*.parquet", chunksize=150000)
     else:
         return None
 
