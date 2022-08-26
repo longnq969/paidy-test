@@ -1,9 +1,7 @@
+import logging
+
 from prefect import task, flow, get_run_logger
 from prefect_dask.task_runners import DaskTaskRunner
-from prefect.task_runners import SequentialTaskRunner
-import os
-import dask.dataframe as dd
-from typing import Optional
 from dask.dataframe import DataFrame
 from datetime import datetime, timedelta
 from pytz import utc
@@ -13,10 +11,11 @@ from scripts.extract import read_data_from_s3, read_data_from_local
 from scripts.common.helpers import *
 from scripts.validation import validate_data_from_s3_data_source
 from prefect.orion.schemas.states import Completed, Failed
+from typing import Optional
 
 
-@task(name="Read data from S3")
-def extract_s3_data(source: str, date_str: str, prefix: str = None) -> DataFrame:
+@task(name="Read data from S3 source")
+def extract_s3_data(source: str, date_str: str, prefix: str = None) -> Optional[DataFrame]:
     """
     Extract data from S3
     :param source: datasource id, e.g "raw", "golden", "staging", or "insight"
@@ -36,9 +35,10 @@ def extract_s3_data(source: str, date_str: str, prefix: str = None) -> DataFrame
     return read_data_from_s3(bucket, fpath, file_format)
 
 
-@task(name='Extract data from Source')
-def extract_local_data(fpath: str, blocksize="10MB") -> DataFrame:
+@task(name='Extract data from Local source')
+def extract_local_data(fpath: str, blocksize="10MB") -> Optional[DataFrame]:
     """ Read data from folder path """
+
     return read_data_from_local(fpath, blocksize=blocksize)
 
 
@@ -47,7 +47,13 @@ def validate_s3_data(date_str: str, checkpoint_name: str, data_stage: str, valid
     """
     Use great_expectations to validate data before ingesting
     """
-    return validate_data_from_s3_data_source(checkpoint_name, data_stage, validation_rules, date_str)
+    logging = get_run_logger()
+    res = validate_data_from_s3_data_source(checkpoint_name, data_stage, validation_rules, date_str)
+
+    if res['success']:
+        logging.info("PASSED data validation .!")
+    else: logging.info("FAILED data validation .!")
+    return res['success']
 
 
 @task(name="Write data to S3")
@@ -79,8 +85,11 @@ def load_s3_data(df: DataFrame, dest: str, date_str: str = None, prefix: str = N
 def extract_source_then_load_to_raw(fpath, date_str: str = None):
     data = extract_local_data(fpath)
     # check data size then load to raw-zone
-    if data.shape[0].compute() > 0:
-        return load_s3_data(data, RAW, date_str)
+    if len(data.index) > 0:
+        # check columns
+        if len(data.columns) == len(RAW_COLUMNS):
+            if set(data.columns) == set(RAW_COLUMNS):
+                return load_s3_data(data, RAW, date_str)
     return False
 
 

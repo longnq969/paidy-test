@@ -46,3 +46,17 @@ S3_CREDENTIAL = {
     },
     'use_ssl': False
 }
+
+RAW_COLUMNS = ["Unnamed: 0",
+               "SeriousDlqin2yrs",
+               "RevolvingUtilizationOfUnsecuredLines",
+               "age",
+               "NumberOfTime30-59DaysPastDueNotWorse",
+               "DebtRatio",
+               "MonthlyIncome",
+               "NumberOfOpenCreditLinesAndLoans",
+               "NumberOfTimes90DaysLate",
+               "NumberRealEstateLoansOrLines",
+               "NumberOfTime60-89DaysPastDueNotWorse",
+               "NumberOfDependents"
+               ]

@@ -109,7 +109,8 @@ def clean_insight_data(df: DataFrame) -> DataFrame:
         .pipe(prepare_remove_duplicates, [])\
         .pipe(prepare_fix_inconsistent_values, 'NumberOfTime30-59DaysPastDueNotWorse', [96, 98])\
         .pipe(prepare_fix_inconsistent_values, 'NumberOfTimes90DaysLate', [96, 98])\
-        .pipe(prepare_fix_inconsistent_values, 'NumberOfTime60-89DaysPastDueNotWorse', [96, 98])\
+        .pipe(prepare_fix_inconsistent_values, 'NumberOfTime60-89DaysPastDueNotWorse', [96, 98]) \
+        .pipe(prepare_remove_duplicates, []) \
         .pipe(prepare_remove_outliers, 'DebtRatio', 2.0)\
         .pipe(prepare_remove_outliers, 'RevolvingUtilizationOfUnsecuredLines', 2.0)\
         .pipe(prepare_remove_outliers, 'MonthlyIncome', 9000.0)\

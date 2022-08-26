@@ -1,0 +1,88 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "insight_validation",
+  "expectations": [
+    {
+      "expectation_type": "expect_table_columns_to_match_ordered_list",
+      "kwargs": {
+        "column_list": [
+          "serious_dlqin2yrs",
+          "revolving_utilization_of_unsecured_lines",
+          "age",
+          "number_of_time30_59_days_past_due_not_worse",
+          "debt_ratio",
+          "monthly_income",
+          "number_of_open_credit_lines_and_loans",
+          "number_of_times90_days_late",
+          "number_real_estate_loans_or_lines",
+          "number_of_time60_89_days_past_due_not_worse",
+          "number_of_dependents",
+          "etl_time"
+        ]
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "max_value": 200000,
+        "min_value": 100000
+      },
+      "meta": {}
+    }
+  ],
+  "ge_cloud_id": null,
+  "meta": {
+    "citations": [
+      {
+        "batch_request": {
+          "data_asset_name": "sample_data.csv",
+          "data_connector_name": "default_inferred_data_connector_name",
+          "datasource_name": "raw_datasource",
+          "limit": 1000
+        },
+        "citation_date": "2022-08-20T15:41:20.947571Z",
+        "comment": "Created suite added via CLI"
+      }
+    ],
+    "columns": {
+      "DebtRatio": {
+        "description": ""
+      },
+      "MonthlyIncome": {
+        "description": ""
+      },
+      "NumberOfDependents": {
+        "description": ""
+      },
+      "NumberOfOpenCreditLinesAndLoans": {
+        "description": ""
+      },
+      "NumberOfTime30-59DaysPastDueNotWorse": {
+        "description": ""
+      },
+      "NumberOfTime60-89DaysPastDueNotWorse": {
+        "description": ""
+      },
+      "NumberOfTimes90DaysLate": {
+        "description": ""
+      },
+      "NumberRealEstateLoansOrLines": {
+        "description": ""
+      },
+      "RevolvingUtilizationOfUnsecuredLines": {
+        "description": ""
+      },
+      "SeriousDlqin2yrs": {
+        "description": ""
+      },
+      "Unnamed: 0": {
+        "description": ""
+      },
+      "age": {
+        "description": ""
+      }
+    },
+    "great_expectations_version": "0.15.19"
+  }
+}
