@@ -5,36 +5,6 @@ networks:
     name: prefect
 
 services:
-  prefect-agent:
-    container_name: prefect_agent
-    build:
-        context: ./
-        dockerfile: docker/Dockerfile
-    command:
-      - prefect
-      - agent
-      - start
-      - -q
-      - default
-    depends_on:
-      prefect-server:
-        condition: service_started
-    environment:
-      # PREFECT_API_URL: http://prefect-server:4200/api
-      PREFECT_LOGGING_LEVEL: DEBUG
-      DOCKER_HOST: unix://var/run/docker.sock
-      AWS_ACCESS_KEY_ID: minio
-      AWS_SECRET_ACCESS_KEY: abc13579
-      AWS_ENDPOINT_URL: http://minio:9000
-    volumes:
-      - ./storages/docker.sock:/var/run/docker.sock
-    restart: on-failure
-    networks:
-      - prefect
-
-  # --------------------------------------#
-  #         Minio for storage             #
-  # --------------------------------------#
   minio:
     image: minio/minio
     environment:
@@ -48,5 +18,32 @@ services:
         target: 9000
       - published: 9001
         target: 9001
+    networks:
+      - prefect
+
+  prefect-agent:
+    container_name: prefect_agent
+    build:
+        context: ./
+        dockerfile: docker/Dockerfile
+    command:
+      - /bin/bash
+      - -c
+      - |
+        sh ./entry.sh
+        prefect agent start -q default
+    depends_on:
+      minio:
+        condition: service_started
+    environment:
+      # PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_LOGGING_LEVEL: DEBUG
+      DOCKER_HOST: unix://var/run/docker.sock
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: abc13579
+      AWS_ENDPOINT_URL: http://minio:9000
+    volumes:
+      - ./storages/docker.sock:/var/run/docker.sock
+    restart: on-failure
     networks:
       - prefect
