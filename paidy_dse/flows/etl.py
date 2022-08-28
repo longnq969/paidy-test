@@ -1,149 +1,123 @@
-import logging
 
+import dask.dataframe as dd
 from prefect import task, flow, get_run_logger
 from prefect_dask.task_runners import DaskTaskRunner
 from dask.dataframe import DataFrame
 from datetime import datetime, timedelta
 from pytz import utc
-from scripts.load import write_data_to_s3
+from scripts.load import write_parquet_to_s3
 from scripts.transformation import clean_golden_data, clean_insight_data
-from scripts.extract import read_data_from_s3, read_data_from_local
 from scripts.common.helpers import *
-from scripts.validation import validate_data_from_s3_data_source
+from scripts.validation import validate_data_in_batch_memory
+from typing import Optional, List
+import great_expectations as ge
 from prefect.orion.schemas.states import Completed, Failed
-from typing import Optional
 
 
-@task(name="Read data from S3 source")
-def extract_s3_data(source: str, date_str: str, prefix: str = None) -> Optional[DataFrame]:
-    """
-    Extract data from S3
-    :param source: datasource id, e.g "raw", "golden", "staging", or "insight"
-    :param date_str: date string in format "%Y-%m-%d"
-    :param prefix: prefix in case of reading from staging-zone
-    :return: DataFrame
-    """
-    if not date_str:
-        # get yesterday
-        date_str = datetime.now(utc).strftime(DATE_FORMAT)
-    fpath = "/".join(date_str.split('-'))
-    bucket, file_format, _ = list(DATA_STAGES[source].values())
-    if source == STAGING:
-        fpath = f"{prefix}/{fpath}"
+def load_to(df: DataFrame, location: str, prefix: str, file_name: str) -> bool:
+    """ Load data to location e.g: RAW_BUCKET, GOLDEN_BUCKET, ... """
+    key = f"{prefix}/{file_name}"
 
-    # extract data
-    return read_data_from_s3(bucket, fpath, file_format)
+    return write_parquet_to_s3(df, location, key)
 
 
-@task(name='Extract data from Local source')
-def extract_local_data(fpath: str, blocksize="10MB") -> Optional[DataFrame]:
-    """ Read data from folder path """
-
-    return read_data_from_local(fpath, blocksize=blocksize)
-
-
-@task(name="Validate data in S3")
-def validate_s3_data(date_str: str, checkpoint_name: str, data_stage: str, validation_rules):
-    """
-    Use great_expectations to validate data before ingesting
-    """
-    logging = get_run_logger()
-    res = validate_data_from_s3_data_source(checkpoint_name, data_stage, validation_rules, date_str)
-
-    if res['success']:
-        logging.info("PASSED data validation .!")
-    else: logging.info("FAILED data validation .!")
-    return res['success']
+def extract_source(file_name) -> Optional[DataFrame]:
+    """ Read data from input source """
+    try:
+        return dd.read_csv(f"{SOURCE_FOLDER}/{file_name}", blocksize="10MB", dtype=RAW_SCHEMA)
+    except Exception as e:
+        return None
 
 
-@task(name="Write data to S3")
-def load_s3_data(df: DataFrame, dest: str, date_str: str = None, prefix: str = None, is_valid: bool = True) -> bool:
-    """
-    Load data to storage location
-    :param df: DataFrame
-    :param dest: Location to write e.g "raw", "golden", "staging", or "insight"
-    :param date_str: date string in format "%Y-%m-%d"
-    :param prefix: prefix in case of writing to staging
-    :param is_valid: great_expectation validation result
-    :return: bool
-    """
-    if not is_valid:
-        return False
-    if not date_str:
-        # get yesterday
-        date_str = datetime.now(utc).strftime(DATE_FORMAT)
-    fpath = "/".join(date_str.split('-'))
-    bucket, file_format, _ = list(DATA_STAGES[dest].values())
-    if dest == STAGING:
-        fpath = f"{prefix}/{fpath}"
+def validate_source(df: DataFrame):
+    """ Validate data input from source """
+    if df is not None:
+        if len(df.index) > 0:
+            # check columns
+            if len(df.columns) == len(RAW_SCHEMA.keys()):
+                # check column list
+                if set(df.columns) == set(RAW_SCHEMA.keys()):
+                    return True
 
-    # load data
-    return write_data_to_s3(df, bucket, fpath, file_format)
-
-
-@flow(name="Load source data in Raw-zone")
-def extract_source_then_load_to_raw(fpath, date_str: str = None):
-    data = extract_local_data(fpath)
-    # check data size then load to raw-zone
-    if len(data.index) > 0:
-        # check columns
-        if len(data.columns) == len(RAW_COLUMNS):
-            if set(data.columns) == set(RAW_COLUMNS):
-                return load_s3_data(data, RAW, date_str)
     return False
 
 
-@flow(
-    name="Transformation and store in Staging-zone",
-    task_runner=DaskTaskRunner(
-        cluster_kwargs={"n_workers": 2}
-))
-def transform_then_load_to_staging(df, date_str: str):
-    load_s3_data.submit(clean_golden_data(df), STAGING, date_str, GOLDEN_PREFIX)
-    load_s3_data.submit(clean_insight_data(df), STAGING, date_str, INSIGHT_PREFIX)
+def validate_stg(ge_context, sub_fol: str, date_str_prefix: str, file_name: str, df: DataFrame) -> bool:
+    """ Validate staging data by using Great_expectations """
+    res = validate_data_in_batch_memory(ge_context,
+                                        df,
+                                        date_str_prefix,
+                                        sub_fol,
+                                        DATA_STAGES[sub_fol]['validation_rules'],
+                                        file_name)
+
+    return res
 
 
-@flow(
-    name="Load to Golden and Insight zone",
-    task_runner=DaskTaskRunner(
-        cluster_kwargs={"n_workers": 2}
-))
-def validate_from_staging_then_load(date_str: str):
-    load_s3_data.submit(extract_s3_data(STAGING, date_str, GOLDEN_PREFIX),
-                        GOLDEN, date_str, None,
-                        is_valid=validate_s3_data(date_str, "stg_checkpoint", GOLDEN,
-                                                  DATA_STAGES[GOLDEN]["validation_rules"]))
-    load_s3_data.submit(extract_s3_data(STAGING, date_str, INSIGHT_PREFIX),
-                        INSIGHT, date_str, None,
-                        is_valid=validate_s3_data(date_str, "stg_checkpoint", INSIGHT,
-                                                  DATA_STAGES[INSIGHT]["validation_rules"]))
+@task
+def process(file_name: str, date_str_prefix: str):
+    """
+    Flow process for each file in source
+    Source -> Raw -> Transformation -> Validation -> PRD [Golden | Insight]
+    :param file_name: input file name in source
+    :param date_str_prefix: run date
+    :return:
+    """
+    logging = get_run_logger()
+    logging.info(f"Processing file {file_name}")
+    ge_context = ge.get_context()
+
+    # source -> raw
+    source = extract_source(file_name)
+    # add validation for source here
+    is_source_valid = validate_source(source)
+    if is_source_valid:
+        # raw -> stg
+        # load_raw(source, file_name, date_str_prefix)
+        load_to(source, RAW_BUCKET, date_str_prefix, file_name)
+
+        # raw = extract_raw(file_name, date_str_prefix)
+        stg_golden = clean_golden_data(source)
+        stg_insight = clean_insight_data(source)
+
+        # validate
+        is_golden_valid = validate_stg(ge_context, "golden", date_str_prefix, file_name, stg_golden)
+        is_insight_valid = validate_stg(ge_context, "insight", date_str_prefix, file_name, stg_insight)
+
+        # stg -> prd
+        if is_golden_valid:
+            # load_golden(extract_stg("golden", date_str_prefix, file_name), date_str_prefix, file_name)
+            load_to(stg_golden, GOLDEN_BUCKET, date_str_prefix, file_name)
+        if is_insight_valid:
+            # load_insight(extract_stg("insight", date_str_prefix, file_name), date_str_prefix, file_name)
+            load_to(stg_insight, INSIGHT_BUCKET, date_str_prefix, file_name)
+
+        if is_golden_valid and is_insight_valid:
+            return Completed(message=f"File {file_name} ETL done. !")
+    return Failed(message=f"File {file_name} ETL failed. !")
 
 
-@flow(name="Credit ETL Flow")
-def etl_flow(fpath: str, date_str: str = None):
+@flow(name="Credit ETL Flow", task_runner=DaskTaskRunner)
+def etl_flow(file_names: List[str], date_str: str = None):
     """
     ETL:
         - Step 1: Ingest to Raw
-        - Step 2: Run transformation from Raw to ingest to Golden & Insight
-    :param fpath: source folder path
+        - Step 2: Run transformation then load to Golden & Insight
+    :param file_names: list of files in source to be processed
     :param date_str: data identifier, default is "yesterday" in UTC (since we will run on daily basis)
     :return: None
     """
+    # get yesterday
     if not date_str:
         # get yesterday
         date_str = datetime.now(utc) - timedelta(days=1)
         date_str = date_str.strftime(DATE_FORMAT)
-    # load to raw-zone
-    extract_source_then_load_to_raw(fpath, date_str)
-    # extract from raw-zone for further transformations
-    data = extract_s3_data(RAW, date_str, return_state=True)
-    if data.result() is not None:
-        # load to staging-zone
-        transform_then_load_to_staging(data, date_str)
-        # load to golden-zone & insight-zone
-        validate_from_staging_then_load(date_str)
+    date_str_prefix = "/".join(date_str.split("-"))
+
+    for file_name in file_names:
+        process.submit(file_name, date_str_prefix)
 
 
 if __name__ == "__main__":
-    fol_path = r"data/sources"
-    etl_flow(fol_path, date_str="2022-08-25")
+    files = [f for f in os.listdir(SOURCE_FOLDER) if f.endswith(".csv")]
+    etl_flow(files, date_str="2022-08-41")

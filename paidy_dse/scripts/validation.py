@@ -34,7 +34,9 @@ def validate_data_from_s3_data_source(checkpoint_name: str,
                 "year": year,
                 "month": month,
                 "day": day
-            }
+            },
+            # "index": [1, 90],
+            "limit": 90
         }
     )
 
@@ -48,6 +50,43 @@ def validate_data_from_s3_data_source(checkpoint_name: str,
     return results
 
 
-def validate_data_in_memory(data: DataFrame, checkpoint_name: str) -> bool:
+def validate_data_in_batch_memory(ge_context,
+                                  df: DataFrame,
+                                  date_str_prefix: str,
+                                  data_asset_name: str,
+                                  ge_suite_name: str,
+                                  file_name: str):
+    """
+    Run validation against in memory dataset
+    :param ge_context: GE context from great_expectations.yml
+    :param df: DataFrame
+    :param date_str_prefix: date string to identify run name
+    :param data_asset_name: data stage. e.g: "golden" or "insight"
+    :param ge_suite_name: GE expectation suite name
+    :param file_name: source file name, to specify results for each files in input source
+    :return: If all partitions PASS -> True, else False
+    """
 
+    def validate_partition(df_batch):
+        res = ge_context.run_checkpoint(
+            checkpoint_name="in_memory_stg_checkpoint",
+            batch_request={
+                "runtime_parameters": {"batch_data": df_batch},
+                "data_asset_name": data_asset_name,
+                "batch_identifiers": {
+                    "default_identifier_name": f"{date_str_prefix}_{file_name}"
+                },
+            },
+            expectation_suite_name=ge_suite_name,
+            run_name_template=f"{date_str_prefix.replace('/', '-')}_{file_name}_%Y%m%d",
+        )
+
+        return res
+
+    # check validation results, if 1 among these failed, then whole set fail.
+    results = df.map_partitions(validate_partition).persist()
+    for r in results.compute():
+        if not r['success']:
+
+            return False
     return True

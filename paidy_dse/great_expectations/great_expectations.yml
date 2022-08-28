@@ -15,22 +15,10 @@ config_version: 3.0
 # add a new datasource. Read more at https://docs.greatexpectations.io/docs/guides/connecting_to_your_data/connect_to_data_overview
 datasources:
   stg_datasource:
-    execution_engine:
-      module_name: great_expectations.execution_engine
-      class_name: PandasExecutionEngine
-      boto3_options:
-        aws_access_key_id: ${AWS_ACCESS_KEY_ID}
-        aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
-        endpoint_url: ${AWS_ENDPOINT_URL}
     module_name: great_expectations.datasource
+    class_name: Datasource
     data_connectors:
       default_inferred_data_connector_name:
-        boto3_options:
-          aws_access_key_id: ${AWS_ACCESS_KEY_ID}
-          aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
-          endpoint_url: ${AWS_ENDPOINT_URL}
-        bucket: staging-zone
-        module_name: great_expectations.datasource.data_connector
         default_regex:
           group_names:
             - data_asset_name
@@ -38,18 +26,43 @@ datasources:
             - month
             - day
             - filename
-          pattern: (.*)\/(\d{4})\/(\d{2})\/(\d{2})\/(.*)\.parquet
+            - subname
+          pattern: (.*)\/(\d{4})\/(\d{2})\/(\d{2})\/(.*)\/(.*)\.parquet
+        bucket: staging-zone
+        module_name: great_expectations.datasource.data_connector
+        boto3_options:
+          aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+          aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+          endpoint_url: ${AWS_ENDPOINT_URL}
         class_name: InferredAssetS3DataConnector
       default_runtime_data_connector_name:
         module_name: great_expectations.datasource.data_connector
-        class_name: RuntimeDataConnector
         assets:
           my_runtime_asset_name:
-            module_name: great_expectations.datasource.data_connector.asset
             batch_identifiers:
               - runtime_batch_identifier_name
+            module_name: great_expectations.datasource.data_connector.asset
             class_name: Asset
+        class_name: RuntimeDataConnector
+    execution_engine:
+      module_name: great_expectations.execution_engine
+      boto3_options:
+        aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+        aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+        endpoint_url: ${AWS_ENDPOINT_URL}
+      class_name: PandasExecutionEngine
+  in_memory_stg_datasource:
+    module_name: great_expectations.datasource
     class_name: Datasource
+    data_connectors:
+      default_runtime_data_connector_name:
+        batch_identifiers:
+          - default_identifier_name
+        module_name: great_expectations.datasource.data_connector
+        class_name: RuntimeDataConnector
+    execution_engine:
+      module_name: great_expectations.execution_engine
+      class_name: PandasExecutionEngine
 config_variables_file_path: config_variables.yml
 
 # The plugins_directory will be added to your python path for custom modules

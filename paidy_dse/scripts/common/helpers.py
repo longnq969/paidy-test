@@ -1,38 +1,33 @@
 import os
 
+# source data folder
+SOURCE_FOLDER = "./data/sources"
+
+# default chunksize for handling large data files
+CHUNKSIZE = 150000
+
 # date format
 DATE_FORMAT = "%Y-%m-%d"
 
-# prefix
-INSIGHT_PREFIX = "insight"
-GOLDEN_PREFIX = "golden"
-
-# data stages
-RAW = "raw"
-GOLDEN = "golden"
-INSIGHT = "insight"
-STAGING = "staging"
+RAW_BUCKET = "raw-zone"
+GOLDEN_BUCKET = "golden-zone"
+INSIGHT_BUCKET = "insight-zone"
 
 
 DATA_STAGES = {
     "raw": {
         "bucket": "raw-zone",  # s3 bucket
-        "file_format": "csv",
+        "file_format": "parquet",
         "validation_rules": None
     },
     "golden": {
         "bucket": "golden-zone",  # s3 bucket
-        "file_format": "csv",
-        "validation_rules": "golden_validation"
-    },
-    "staging": {
-        "bucket": "staging-zone",  # s3 bucket
         "file_format": "parquet",
-        "validation_rules": None
+        "validation_rules": "golden_validation"
     },
     "insight": {
         "bucket": "insight-zone",  # s3 bucket
-        "file_format": "csv",
+        "file_format": "parquet",
         "validation_rules": "insight_validation"
     }
 }
@@ -47,16 +42,18 @@ S3_CREDENTIAL = {
     'use_ssl': False
 }
 
-RAW_COLUMNS = ["Unnamed: 0",
-               "SeriousDlqin2yrs",
-               "RevolvingUtilizationOfUnsecuredLines",
-               "age",
-               "NumberOfTime30-59DaysPastDueNotWorse",
-               "DebtRatio",
-               "MonthlyIncome",
-               "NumberOfOpenCreditLinesAndLoans",
-               "NumberOfTimes90DaysLate",
-               "NumberRealEstateLoansOrLines",
-               "NumberOfTime60-89DaysPastDueNotWorse",
-               "NumberOfDependents"
-               ]
+RAW_SCHEMA = {"Unnamed: 0": int,
+          "SeriousDlqin2yrs": int,
+          "RevolvingUtilizationOfUnsecuredLines": float,
+          "age": int,
+          "NumberOfTime30-59DaysPastDueNotWorse": int,
+          "DebtRatio": float,
+          "MonthlyIncome": float,
+          "NumberOfOpenCreditLinesAndLoans": int,
+          "NumberOfTimes90DaysLate": int,
+          "NumberRealEstateLoansOrLines": int,
+          "NumberOfTime60-89DaysPastDueNotWorse": int,
+          "NumberOfDependents": float}
+
+
+
