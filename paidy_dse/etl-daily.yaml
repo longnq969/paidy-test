@@ -1,0 +1,55 @@
+###
+### A complete description of a Prefect Deployment for flow 'Credit ETL Flow'
+###
+name: etl-daily
+description: |-
+  ETL:
+      - Step 1: Ingest to Raw
+      - Step 2: Run transformation then load to Golden & Insight
+  :param source_folder: source folder
+  :param date_str: data identifier, default is "yesterday" in UTC (since we will run on daily basis)
+  :return: None
+version: 852741f1f02a588c03df49f2aea85833
+# The work queue that will handle this deployment's runs
+work_queue_name: default
+tags: []
+parameters:
+  source_folder: ./data/sources
+schedule:
+  interval: 86400
+  timezone: Asia/Ho_Chi_Minh
+
+###
+### DO NOT EDIT BELOW THIS LINE
+###
+flow_name: Credit ETL Flow
+manifest_path: null
+infrastructure:
+  type: process
+  env: {}
+  labels: {}
+  name: null
+  command:
+  - python
+  - -m
+  - prefect.engine
+  stream_output: true
+  _block_document_id: 9db7af46-5bf2-44c8-becc-68abacace26f
+  _block_document_name: anonymous-152bf10b-8a5d-4d4f-844f-0d506f7e2405
+  _is_anonymous: true
+storage: null
+path: E:\etl\etl\interview\paidy_dse
+entrypoint: flows\etl.py:etl_flow
+parameter_openapi_schema:
+  title: Parameters
+  type: object
+  properties:
+    source_folder:
+      title: source_folder
+      type: string
+    date_str:
+      title: date_str
+      type: string
+  required:
+  - source_folder
+  definitions: null

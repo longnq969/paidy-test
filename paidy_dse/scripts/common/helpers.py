@@ -1,8 +1,5 @@
 import os
 
-# source data folder
-SOURCE_FOLDER = "./data/sources"
-
 # default chunksize for handling large data files
 CHUNKSIZE = 150000
 
