@@ -8,7 +8,6 @@ chmod +x mc
 
 # create buckets
 ./mc mb minio/raw-zone
-./mc mb minio/staging-zone
 ./mc mb minio/golden-zone
 ./mc mb minio/insight-zone
 ./mc mb minio/data-validation
