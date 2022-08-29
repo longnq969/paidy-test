@@ -15,9 +15,12 @@ from pytz import utc
 from datetime import datetime, timedelta
 
 
-def load_to(df: DataFrame, location: str, prefix: str, file_name: str) -> bool:
+def load_to(df: DataFrame, location: str, prefix: str, file_name: str, sub_fol: str = None) -> bool:
     """ Load data to location e.g: RAW_BUCKET, GOLDEN_BUCKET, ... """
-    key = f"{prefix}/{file_name}"
+    if sub_fol:
+        key = f"{sub_fol}/{prefix}/{file_name}"
+    else:
+        key = f"{prefix}/{file_name}"
 
     return write_parquet_to_s3(df, location, key)
 
@@ -86,9 +89,14 @@ def process(file_path: str, date_str_prefix: str):
         stg_golden = clean_golden_data(source)
         stg_insight = clean_insight_data(source)
 
+        # transform -> stg
+        load_to(stg_golden, STAGING_BUCKET, date_str_prefix, file_name, sub_fol="golden")
+        load_to(stg_insight, STAGING_BUCKET, date_str_prefix, file_name, sub_fol="insight")
+
         # validate
         is_golden_valid = validate_stg(ge_context, "golden", date_str_prefix, file_name, stg_golden)
         is_insight_valid = validate_stg(ge_context, "insight", date_str_prefix, file_name, stg_insight)
+
 
         # stg -> prd
         if is_golden_valid:

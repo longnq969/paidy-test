@@ -9,6 +9,7 @@ DATE_FORMAT = "%Y-%m-%d"
 RAW_BUCKET = "raw-zone"
 GOLDEN_BUCKET = "golden-zone"
 INSIGHT_BUCKET = "insight-zone"
+STAGING_BUCKET = "staging-zone"
 
 
 DATA_STAGES = {
