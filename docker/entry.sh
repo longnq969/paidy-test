@@ -10,6 +10,9 @@ chmod +x mc
 ./mc mb minio/raw-zone
 ./mc mb minio/golden-zone
 ./mc mb minio/insight-zone
+./mc mb minio/staging-zone
+./mc mb minio/staging-zone/golden
+./mc mb minio/staging-zone/insight
 ./mc mb minio/data-validation
 ./mc mb minio/data-validation/expectations
 ./mc mb minio/data-validation/checkpoints
