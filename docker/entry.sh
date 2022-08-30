@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cd /app
+# cd /app
 chmod +x mc
 
 # connect to minio
