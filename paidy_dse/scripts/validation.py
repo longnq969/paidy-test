@@ -67,14 +67,16 @@ def validate_data_in_batch_memory(ge_context,
     :return: If all partitions PASS -> True, else False
     """
 
-    def validate_partition(df_batch):
+    def validate_partition(df_batch, partition_info=None):
+        # print(df_batch.head())
+        print(df_batch.shape)
         res = ge_context.run_checkpoint(
             checkpoint_name="in_memory_stg_checkpoint",
             batch_request={
                 "runtime_parameters": {"batch_data": df_batch},
                 "data_asset_name": data_asset_name,
                 "batch_identifiers": {
-                    "default_identifier_name": f"{date_str_prefix}_{file_name}"
+                    "default_identifier_name": f"{date_str_prefix}_{file_name}_{partition_info['number']}"
                 },
             },
             expectation_suite_name=ge_suite_name,
@@ -84,9 +86,10 @@ def validate_data_in_batch_memory(ge_context,
         return res
 
     # check validation results, if 1 among these failed, then whole set fail.
-    results = df.map_partitions(validate_partition).persist()
-    for r in results.compute():
-        if not r['success']:
+    results = df.map_partitions(validate_partition, meta=('result', 'object')).persist()
+    # results = [validate_partition(df.partitions[i].compute(), i) for i in range(df.npartitions)]
 
+    for r in results:
+        if not r['success']:
             return False
     return True

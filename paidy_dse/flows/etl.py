@@ -13,7 +13,7 @@ from prefect.tasks import task_input_hash
 from typing import Optional, List
 from pytz import utc
 from datetime import datetime, timedelta
-
+import gc
 
 def load_to(df: DataFrame, location: str, prefix: str, file_name: str, sub_fol: str = None) -> bool:
     """ Load data to location e.g: RAW_BUCKET, GOLDEN_BUCKET, ... """
@@ -28,7 +28,7 @@ def load_to(df: DataFrame, location: str, prefix: str, file_name: str, sub_fol: 
 def extract_source(file_path) -> Optional[DataFrame]:
     """ Read data from input source """
     try:
-        return dd.read_csv(file_path, blocksize="10MB", dtype=RAW_SCHEMA)
+        return dd.read_csv(file_path, blocksize=None, dtype=RAW_SCHEMA)
     except Exception as e:
         return None
 
@@ -58,7 +58,8 @@ def validate_stg(ge_context, stage: str, date_str_prefix: str, file_name: str, d
     return res
 
 
-@task(retries=3, retry_delay_seconds=60, cache_key_fn=task_input_hash, cache_expiration=timedelta(days=1))
+# @task(retries=3, retry_delay_seconds=60, cache_key_fn=task_input_hash, cache_expiration=timedelta(days=1))
+@task()
 def process(file_path: str, date_str_prefix: str):
     """
     Flow process for each file in source
@@ -78,6 +79,10 @@ def process(file_path: str, date_str_prefix: str):
 
     # source -> raw
     source = extract_source(file_path)
+
+    # persist
+    source = source.persist()
+
     # add validation for source here
     is_source_valid = validate_source(source)
     if is_source_valid:
@@ -89,6 +94,10 @@ def process(file_path: str, date_str_prefix: str):
         stg_golden = clean_golden_data(source)
         stg_insight = clean_insight_data(source)
 
+        # persist
+        stg_golden = stg_golden.persist()
+        stg_insight = stg_insight.persist()
+
         # transform -> stg
         load_to(stg_golden, STAGING_BUCKET, date_str_prefix, file_name, sub_fol="golden")
         load_to(stg_insight, STAGING_BUCKET, date_str_prefix, file_name, sub_fol="insight")
@@ -96,7 +105,7 @@ def process(file_path: str, date_str_prefix: str):
         # validate
         is_golden_valid = validate_stg(ge_context, "golden", date_str_prefix, file_name, stg_golden)
         is_insight_valid = validate_stg(ge_context, "insight", date_str_prefix, file_name, stg_insight)
-
+        # is_insight_valid = True
 
         # stg -> prd
         if is_golden_valid:
@@ -105,6 +114,12 @@ def process(file_path: str, date_str_prefix: str):
         if is_insight_valid:
             # load_insight(extract_stg("insight", date_str_prefix, file_name), date_str_prefix, file_name)
             load_to(stg_insight, INSIGHT_BUCKET, date_str_prefix, file_name)
+
+        # delete data & gc collect
+        del source
+        del stg_golden
+        del stg_insight
+        gc.collect()
 
         if is_golden_valid and is_insight_valid:
             return Completed(message=f"File {file_name} ETL done. !")
@@ -130,9 +145,10 @@ def etl_flow(source_folder: str, date_str: str = None):
 
     # get file path in source folder
     file_paths = [f"{source_folder}/{f}" for f in os.listdir(source_folder) if f.endswith(".csv")]
-
+    
     for file_path in file_paths:
-        process.submit(file_path, date_str_prefix)
+        for i in range(10):
+            process.submit(file_path, date_str_prefix)
 
 
 if __name__ == "__main__":
